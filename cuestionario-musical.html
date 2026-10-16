@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mood Radio - Cuestionario musical con IA</title>
+    <style>
+        :root {
+            --bg1: #1b1033;
+            --bg2: #0f2a43;
+            --card: rgba(255, 255, 255, 0.07);
+            --card-border: rgba(255, 255, 255, 0.15);
+            --text: #f4f1ff;
+            --muted: #b9b1d6;
+            --accent: #ff6ec7;
+            --accent2: #7c5cff;
+            --ok: #5eead4;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--text);
+            background: linear-gradient(135deg, var(--bg1), var(--bg2));
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 32px 16px;
+        }
+
+        .app {
+            width: 100%;
+            max-width: 760px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        header h1 {
+            margin: 0 0 6px;
+            font-size: 2rem;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        header p { margin: 0; color: var(--muted); }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+            padding: 28px;
+            backdrop-filter: blur(6px);
+        }
+
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        .center { text-align: center; }
+
+        button {
+            font-family: inherit;
+            cursor: pointer;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 22px;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.1s, opacity 0.2s, background 0.2s;
+        }
+
+        button:active { transform: scale(0.97); }
+
+        .btn-primary {
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            color: white;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--card-border);
+        }
+
+        .btn-ghost:hover { color: var(--text); }
+
+        /* Barra de progreso */
+        .progress-wrap {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 99px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            transition: width 0.3s;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            background: rgba(124, 92, 255, 0.25);
+            color: #cfc4ff;
+            margin-bottom: 12px;
+        }
+
+        .question-text {
+            font-size: 1.3rem;
+            line-height: 1.4;
+            margin: 0 0 20px;
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .option {
+            text-align: left;
+            background: rgba(255, 255, 255, 0.06);
+            border: 2px solid transparent;
+            color: var(--text);
+            font-weight: 400;
+            padding: 14px 16px;
+        }
+
+        .option:hover { background: rgba(255, 255, 255, 0.12); }
+
+        .option.selected {
+            border-color: var(--accent);
+            background: rgba(255, 110, 199, 0.15);
+        }
+
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        /* Cargando */
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 5px solid rgba(255, 255, 255, 0.15);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            margin: 10px auto 18px;
+            animation: spin 0.9s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Resultados */
+        .profile {
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .profile h2 {
+            margin: 0 0 8px;
+            font-size: 1.6rem;
+            color: var(--accent);
+        }
+
+        .profile p { margin: 0; line-height: 1.6; color: var(--text); }
+
+        .catalog-title {
+            margin: 0 0 14px;
+            font-size: 1.1rem;
+            color: var(--muted);
+        }
+
+        .song {
+            display: flex;
+            gap: 16px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .song-num {
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        .song-body { flex: 1; min-width: 0; }
+
+        .song-title { margin: 0; font-size: 1.1rem; }
+        .song-artist { margin: 2px 0 8px; color: var(--muted); }
+
+        .genre-tag {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            background: rgba(94, 234, 212, 0.18);
+            color: var(--ok);
+            margin-bottom: 8px;
+        }
+
+        .song-why {
+            margin: 0 0 10px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+
+        .song a {
+            color: var(--accent);
+            font-size: 0.85rem;
+            text-decoration: none;
+        }
+
+        .song a:hover { text-decoration: underline; }
+
+        .error-msg {
+            color: #ff9b9b;
+            background: rgba(255, 90, 90, 0.12);
+            border: 1px solid rgba(255, 90, 90, 0.3);
+            padding: 12px;
+            border-radius: 10px;
+            margin: 16px 0;
+            word-break: break-word;
+        }
+
+        @media (max-width: 520px) {
+            .card { padding: 20px; }
+            .question-text { font-size: 1.1rem; }
+            .song { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <header>
+        <h1>🎧 Mood Radio</h1>
+        <p>Responde 12 preguntas y la IA te recomienda 5 canciones hechas para ti</p>
+    </header>
+
+    <div class="card">
+
+        <!-- Pantalla de inicio -->
+        <div id="screen-start" class="screen active center">
+            <h2>¿Listo para descubrir tu perfil musical?</h2>
+            <p style="color: var(--muted); line-height: 1.6;">
+                La IA generará un cuestionario único sobre tu personalidad, tu estado de ánimo
+                y tus preferencias. Después analizará tus respuestas y armará tu catálogo personalizado.
+            </p>
+            <button class="btn-primary" id="btn-start">Generar cuestionario</button>
+        </div>
+
+        <!-- Pantalla de carga -->
+        <div id="screen-loading" class="screen center">
+            <div class="spinner"></div>
+            <p id="loading-text" style="color: var(--muted);">Cargando...</p>
+        </div>
+
+        <!-- Pantalla del cuestionario -->
+        <div id="screen-quiz" class="screen">
+            <div class="progress-wrap">
+                <span id="progress-label">Pregunta 1 de 12</span>
+                <span id="progress-percent">0%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+
+            <span class="badge" id="question-category"></span>
+            <h3 class="question-text" id="question-text"></h3>
+            <div class="options" id="options"></div>
+
+            <div class="nav">
+                <button class="btn-ghost" id="btn-prev">← Anterior</button>
+                <button class="btn-primary" id="btn-next" disabled>Siguiente →</button>
+            </div>
+        </div>
+
+        <!-- Pantalla de resultados -->
+        <div id="screen-results" class="screen">
+            <div class="profile">
+                <span class="badge">Tu perfil</span>
+                <h2 id="profile-title"></h2>
+                <p id="profile-summary"></p>
+            </div>
+            <h3 class="catalog-title">🎵 Tu catálogo de 5 canciones recomendadas</h3>
+            <div id="song-list"></div>
+            <div class="center" style="margin-top: 20px;">
+                <button class="btn-primary" id="btn-restart">Hacer otro cuestionario</button>
+            </div>
+        </div>
+
+        <!-- Pantalla de error -->
+        <div id="screen-error" class="screen center">
+            <h2>Algo salió mal 😵</h2>
+            <div class="error-msg" id="error-text"></div>
+            <button class="btn-primary" id="btn-retry">Reintentar</button>
+        </div>
+
+    </div>
+</div>
+<script src="config.js"></script>
+<script>
+    // ====== CONFIGURACIÓN DE LA IA ======
+    // La clave vive en config.js (que NO se sube a GitHub). Copia config.example.js a config.js.
+    const CFG = window.CONFIG || {};
+    const API_KEY = CFG.API_KEY || "";
+    const API_URL = CFG.API_URL || "https://api.groq.com/openai/v1/chat/completions";
+    const MODEL = CFG.MODEL || "openai/gpt-oss-20b";
+
+    const TOTAL_QUESTIONS = 12;
+
+    // ====== ESTADO ======
+    let questions = [];
+    let answers = [];
+    let currentIndex = 0;
+    let lastAction = null; // para el botón "Reintentar"
+
+    // ====== UTILIDADES ======
+    const $ = (id) => document.getElementById(id);
+
+    function showScreen(name) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        $('screen-' + name).classList.add('active');
+    }
+
+    function showLoading(text) {
+        $('loading-text').textContent = text;
+        showScreen('loading');
+    }
+
+    function showError(message, retryAction) {
+        $('error-text').textContent = message;
+        lastAction = retryAction;
+        showScreen('error');
+    }
+
+    // Llamada genérica a la API del modelo de lenguaje
+    async function callAI(systemPrompt, userPrompt, temperature = 0.9) {
+        if (!API_KEY) throw new Error("Falta la clave de API. Copia config.example.js como config.js y pega tu clave.");
+        const response = await fetch(API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${API_KEY}`
+            },
+            body: JSON.stringify({
+                model: MODEL,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt }
+                ],
+                temperature: temperature,
+                max_tokens: 4000,
+                reasoning_effort: "low"
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.error) throw new Error(data.error.message);
+        if (!data.choices || !data.choices[0]) throw new Error("La IA devolvió una respuesta vacía.");
+
+        return data.choices[0].message.content;
+    }
+
+    // Extrae el JSON aunque el modelo agregue texto alrededor
+    function parseJSON(text) {
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start === -1 || end === -1) throw new Error("La IA no devolvió un JSON válido.");
+        return JSON.parse(text.slice(start, end + 1));
+    }
+
+    // ====== PASO 1: GENERAR CUESTIONARIO ======
+    async function generateQuiz() {
+        showLoading("La IA está inventando tu cuestionario...");
+
+        const systemPrompt =
+            "Eres un psicólogo musical creativo. Respondes SIEMPRE y ÚNICAMENTE con JSON válido, sin texto adicional ni markdown.";
+
+        const seed = Math.floor(Math.random() * 100000);
+
+        const userPrompt = `Genera un cuestionario de EXACTAMENTE ${TOTAL_QUESTIONS} preguntas en español para conocer a una persona y recomendarle música.
+Distribución obligatoria: 4 preguntas de "personalidad", 4 de "estado_de_animo" y 4 de "preferencias" (gustos, hábitos de escucha, ambientes, actividades).
+Cada pregunta debe tener exactamente 4 opciones de respuesta, cortas y distintas entre sí.
+Hazlo original y variado, con situaciones cotidianas o creativas (semilla de variedad: ${seed}).
+Ordena las preguntas mezclando las categorías.
+
+Formato JSON exacto:
+{"preguntas":[{"categoria":"personalidad","texto":"...","opciones":["...","...","...","..."]}]}`;
+
+        try {
+            const raw = await callAI(systemPrompt, userPrompt, 1);
+            const parsed = parseJSON(raw);
+
+            if (!Array.isArray(parsed.preguntas) || parsed.preguntas.length < TOTAL_QUESTIONS) {
+                throw new Error("La IA no generó las 12 preguntas completas.");
+            }
+
+            questions = parsed.preguntas.slice(0, TOTAL_QUESTIONS);
+
+            for (const q of questions) {
+                if (!q.texto || !Array.isArray(q.opciones) || q.opciones.length < 2) {
+                    throw new Error("Una de las preguntas llegó con formato incorrecto.");
+                }
+            }
+
+            answers = new Array(TOTAL_QUESTIONS).fill(null);
+            currentIndex = 0;
+            renderQuestion();
+            showScreen('quiz');
+        } catch (err) {
+            console.error(err);
+            showError(err.message, generateQuiz);
+        }
+    }
+
+    // ====== PASO 2: MOSTRAR PREGUNTAS ======
+    const CATEGORY_LABELS = {
+        personalidad: "Personalidad",
+        estado_de_animo: "Estado de ánimo",
+        preferencias: "Preferencias"
+    };
+
+    function renderQuestion() {
+        const q = questions[currentIndex];
+        const percent = Math.round((currentIndex / TOTAL_QUESTIONS) * 100);
+
+        $('progress-label').textContent = `Pregunta ${currentIndex + 1} de ${TOTAL_QUESTIONS}`;
+        $('progress-percent').textContent = percent + "%";
+        $('progress-fill').style.width = percent + "%";
+
+        $('question-category').textContent = CATEGORY_LABELS[q.categoria] || "General";
+        $('question-text').textContent = q.texto;
+
+        const optionsDiv = $('options');
+        optionsDiv.innerHTML = '';
+
+        q.opciones.forEach((opt, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'option' + (answers[currentIndex] === i ? ' selected' : '');
+            btn.textContent = opt;
+            btn.onclick = () => selectOption(i);
+            optionsDiv.appendChild(btn);
+        });
+
+        $('btn-prev').style.visibility = currentIndex === 0 ? 'hidden' : 'visible';
+        $('btn-next').disabled = answers[currentIndex] === null;
+        $('btn-next').textContent = currentIndex === TOTAL_QUESTIONS - 1 ? "Analizar mi perfil ✨" : "Siguiente →";
+    }
+
+    function selectOption(index) {
+        answers[currentIndex] = index;
+        renderQuestion();
+    }
+
+    function nextQuestion() {
+        if (answers[currentIndex] === null) return;
+
+        if (currentIndex < TOTAL_QUESTIONS - 1) {
+            currentIndex++;
+            renderQuestion();
+        } else {
+            analyzeProfile();
+        }
+    }
+
+    function prevQuestion() {
+        if (currentIndex > 0) {
+            currentIndex--;
+            renderQuestion();
+        }
+    }
+
+    // ====== PASO 3: ENVIAR RESPUESTAS A LA IA Y OBTENER RECOMENDACIONES ======
+    async function analyzeProfile() {
+        showLoading("La IA está analizando tu perfil y buscando tus canciones...");
+
+        const systemPrompt =
+            "Eres un experto en psicología de la música y curador musical. Respondes SIEMPRE y ÚNICAMENTE con JSON válido, sin texto adicional ni markdown.";
+
+        const resumen = questions.map((q, i) =>
+            `${i + 1}. [${q.categoria}] ${q.texto}\n   Respuesta: ${q.opciones[answers[i]]}`
+        ).join('\n');
+
+        const userPrompt = `Estas son las respuestas de una persona a un cuestionario de personalidad, estado de ánimo y preferencias:
+
+${resumen}
+
+Analiza su perfil y recomiéndale EXACTAMENTE 5 canciones reales y existentes que encajen con su forma de ser, su ánimo actual y sus gustos. Varía los géneros y artistas (no repitas artista). Todo el texto en español.
+
+Formato JSON exacto:
+{
+  "perfil": {"titulo": "nombre creativo del perfil (3-5 palabras)", "resumen": "análisis de 3 a 4 oraciones dirigido a la persona (usa 'tú')"},
+  "canciones": [
+    {"titulo": "...", "artista": "...", "genero": "...", "justificacion": "1 o 2 oraciones explicando por qué se adapta a sus respuestas"}
+  ]
+}`;
+
+        try {
+            const raw = await callAI(systemPrompt, userPrompt, 0.8);
+            const parsed = parseJSON(raw);
+
+            if (!parsed.perfil || !Array.isArray(parsed.canciones) || parsed.canciones.length < 5) {
+                throw new Error("La IA no devolvió las 5 canciones completas.");
+            }
+
+            renderResults(parsed);
+        } catch (err) {
+            console.error(err);
+            showError(err.message, analyzeProfile);
+        }
+    }
+
+    // ====== PASO 4: MOSTRAR CATÁLOGO ======
+    function renderResults(result) {
+        $('profile-title').textContent = result.perfil.titulo || "Tu perfil musical";
+        $('profile-summary').textContent = result.perfil.resumen || "";
+
+        const list = $('song-list');
+        list.innerHTML = '';
+
+        result.canciones.slice(0, 5).forEach((song, i) => {
+            const card = document.createElement('div');
+            card.className = 'song';
+
+            const num = document.createElement('div');
+            num.className = 'song-num';
+            num.textContent = i + 1;
+
+            const body = document.createElement('div');
+            body.className = 'song-body';
+
+            const title = document.createElement('h4');
+            title.className = 'song-title';
+            title.textContent = song.titulo;
+
+            const artist = document.createElement('p');
+            artist.className = 'song-artist';
+            artist.textContent = song.artista;
+
+            const genre = document.createElement('span');
+            genre.className = 'genre-tag';
+            genre.textContent = song.genero;
+
+            const why = document.createElement('p');
+            why.className = 'song-why';
+            why.textContent = song.justificacion;
+
+            const link = document.createElement('a');
+            link.href = 'https://open.spotify.com/search/' + encodeURIComponent(`${song.titulo} ${song.artista}`);
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = '▶ Buscar en Spotify';
+
+            body.append(title, artist, genre, why, link);
+            card.append(num, body);
+            list.appendChild(card);
+        });
+
+        showScreen('results');
+    }
+
+    // ====== EVENTOS ======
+    $('btn-start').onclick = generateQuiz;
+    $('btn-next').onclick = nextQuestion;
+    $('btn-prev').onclick = prevQuestion;
+    $('btn-restart').onclick = () => showScreen('start');
+    $('btn-retry').onclick = () => { if (lastAction) lastAction(); };
+</script>
+</body>
+</html>
